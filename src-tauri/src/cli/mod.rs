@@ -58,6 +58,12 @@ pub enum Commands {
     HookRelay {
         event_name: String,
     },
+    /// Internal: resolve a pending instance decision through the daemon
+    #[command(hide = true)]
+    Decide {
+        instance_id: String,
+        decision: String,
+    },
 }
 
 #[cfg(test)]

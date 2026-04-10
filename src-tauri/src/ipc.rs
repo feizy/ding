@@ -29,6 +29,10 @@ pub enum IpcMessage {
         args: Vec<String>,
         name: Option<String>,
     },
+    SendDecision {
+        instance_id: String,
+        decision: String,
+    },
     List,
     Kill { id: String },
     KillAll,
@@ -175,6 +179,40 @@ async fn handle_ipc_message_internal(
         }
         IpcMessage::Ping => {
             return "PONG\n".to_string();
+        }
+        IpcMessage::SendDecision { instance_id, decision } => {
+            let dec = match decision.as_str() {
+                "approve" => ActionDecision::Approve,
+                "approve_for_session" => ActionDecision::ApproveForSession,
+                "deny" => ActionDecision::Deny,
+                "abort" => ActionDecision::Abort,
+                _ => return "ERROR: invalid decision\n".to_string(),
+            };
+
+            let updated_instance = {
+                let mut lock = manager.lock().await;
+                if let Some(tx) = lock.decision_channels.get(&instance_id).cloned() {
+                    let _ = tx.send(dec.clone()).await;
+                }
+
+                let Some(instance) = lock.get_mut(&instance_id) else {
+                    return format!("ERROR: instance {} not found\n", instance_id);
+                };
+
+                instance.pending_action = None;
+                instance.status = DingStatus::Running;
+                instance.push_log(
+                    format!("Decision received via daemon: {}", decision),
+                    LogLevel::System,
+                );
+                instance.clone()
+            };
+
+            if let Some(app) = app {
+                emit_instance_snapshot(app, updated_instance);
+            }
+
+            return format!("OK: decision sent for {}\n", instance_id);
         }
         IpcMessage::List => {
             let lock = manager.lock().await;

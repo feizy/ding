@@ -50,6 +50,9 @@ pub async fn handle_command(cmd: Commands) {
                 Commands::Run { program, args, name } => {
                     IpcMessage::Run { program, args, name }
                 }
+                Commands::Decide { instance_id, decision } => {
+                    IpcMessage::SendDecision { instance_id, decision }
+                }
                 Commands::List => IpcMessage::List,
                 Commands::Kill { id } => IpcMessage::Kill { id },
                 Commands::KillAll => IpcMessage::KillAll,

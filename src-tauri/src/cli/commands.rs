@@ -74,10 +74,34 @@ async fn ensure_daemon_running() -> Result<(), String> {
 
     println!("Ding daemon not running. Starting in background...");
     let exe_path = std::env::current_exe().map_err(|err| err.to_string())?;
-    std::process::Command::new(exe_path)
+    let mut child = std::process::Command::new(exe_path)
         .spawn()
         .map_err(|err| err.to_string())?;
 
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    Ok(())
+    let started = wait_for_daemon_ready(&mut child).await?;
+    if started {
+        Ok(())
+    } else {
+        Err("daemon did not become reachable in time".to_string())
+    }
+}
+
+async fn wait_for_daemon_ready(child: &mut std::process::Child) -> Result<bool, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+
+    loop {
+        if ipc::is_daemon_running() {
+            return Ok(true);
+        }
+
+        if let Some(status) = child.try_wait().map_err(|err| err.to_string())? {
+            return Err(format!("daemon exited early with status {}", status));
+        }
+
+        if std::time::Instant::now() >= deadline {
+            return Ok(false);
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
 }

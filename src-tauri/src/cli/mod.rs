@@ -13,18 +13,9 @@ pub struct Cli {
 pub enum Commands {
     /// Launch and monitor a Claude Code agent
     Claude {
-        /// The prompt / task for Claude
-        #[arg(required = true)]
-        prompt: String,
-        /// Display name for this instance
-        #[arg(short, long)]
-        name: Option<String>,
-        /// Model to use
-        #[arg(long, default_value = "sonnet")]
-        model: String,
-        /// Comma-separated list of allowed tools (e.g. "Read,Edit,Bash")
-        #[arg(long)]
-        allowed_tools: Option<String>,
+        /// Arguments passed through to the native Claude CLI
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
     },
     /// Launch and monitor a Codex agent
     Codex {
@@ -62,4 +53,25 @@ pub enum Commands {
     },
     /// Kill all instances
     KillAll,
+    /// Internal: relay a Claude hook event back to the local daemon
+    #[command(hide = true)]
+    HookRelay {
+        event_name: String,
+    },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Cli, Commands};
+    use clap::Parser;
+
+    #[test]
+    fn claude_subcommand_allows_empty_args() {
+        let cli = Cli::try_parse_from(["ding", "claude"]).unwrap();
+
+        match cli.command.unwrap() {
+            Commands::Claude { args } => assert!(args.is_empty()),
+            _ => panic!("expected Claude command"),
+        }
+    }
 }

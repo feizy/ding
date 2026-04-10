@@ -5,6 +5,7 @@ use crate::instance::model::*;
 /// Manages all active instances, provides sorted access by priority
 pub struct InstanceManager {
     instances: HashMap<String, Instance>,
+    claude_sessions: HashMap<String, String>,
     pub decision_channels: HashMap<String, tokio::sync::mpsc::Sender<ActionDecision>>,
     counter: u32,
 }
@@ -13,6 +14,7 @@ impl InstanceManager {
     pub fn new() -> Self {
         Self {
             instances: HashMap::new(),
+            claude_sessions: HashMap::new(),
             decision_channels: HashMap::new(),
             counter: 0,
         }
@@ -37,6 +39,27 @@ impl InstanceManager {
         self.instances.get_mut(id)
     }
 
+    pub fn ensure_claude_session_instance(
+        &mut self,
+        session_id: &str,
+        cwd: Option<&str>,
+    ) -> (String, bool) {
+        if let Some(id) = self.claude_sessions.get(session_id) {
+            return (id.clone(), false);
+        }
+
+        let name = cwd
+            .and_then(|value| std::path::Path::new(value).file_name())
+            .and_then(|value| value.to_str())
+            .filter(|value| !value.is_empty())
+            .unwrap_or("Claude Code");
+
+        let id = self.create_instance(name, AdapterType::ClaudeCode);
+        self.claude_sessions
+            .insert(session_id.to_string(), id.clone());
+        (id, true)
+    }
+
     /// Get an instance by ID
     #[allow(dead_code)]
     pub fn get(&self, id: &str) -> Option<&Instance> {
@@ -46,6 +69,7 @@ impl InstanceManager {
     /// Remove an instance
     pub fn remove(&mut self, id: &str) -> Option<Instance> {
         self.decision_channels.remove(id);
+        self.claude_sessions.retain(|_, mapped_id| mapped_id != id);
         self.instances.remove(id)
     }
 

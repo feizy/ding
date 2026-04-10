@@ -22,12 +22,12 @@
 - `[x]` 方案定稿：Claude 不再以 `-p --output-format stream-json` 为主线
 - `[x]` 明确用户级 hooks 安装策略（`~/.claude/settings.json`）
 - `[x]` 明确 Claude MVP hooks 事件范围
-- `[ ]` `ding claude` 启动后保持与直接执行 `claude` 完全一致的 TUI 行为
-- `[ ]` `ding` 自动安装/更新用户级 Claude hooks
-- `[ ]` `ding-hook` 作为长期有效的用户级 hook 入口
-- `[ ]` Claude `session_id` 到 `ding` 实例的映射
+- `[x]` `ding claude` 启动后保持与直接执行 `claude` 一致的原生入口行为
+- `[x]` `ding` 自动安装/更新用户级 Claude hooks
+- `[x]` 用户级 hook relay 入口打通（当前实现为 `ding hook-relay`）
+- `[x]` Claude `session_id` 到 `ding` 实例的基础映射
 - `[ ]` `PermissionRequest -> UI -> 决策 -> Claude` 审批闭环
-- `[ ]` `SessionStart / PostToolUse / Stop / SessionEnd` 的状态更新与日志映射
+- `[x]` `SessionStart / PostToolUse / Stop / SessionEnd` 的基础状态更新与日志映射
 
 ## Phase 3: Codex 结构化监控补完
 
@@ -56,5 +56,6 @@
 
 ## 当前说明
 
-- Claude 当前代码实现仍包含旧的非交互 `stream-json` 适配器，但它不再是后续目标方案
-- 文档、设计与后续实现应以 `docs/claude_hooks_mvp.md` 和 `docs/implementation_plan.md` 为准
+- Claude 当前代码中仍保留旧的非交互 `stream-json` 适配器代码，但它不再是后续目标方案
+- 当前已完成“原生 Claude 入口 + 用户级 hooks 安装 + 基础 hooks 事件回传”
+- 下一阶段重点是 Claude 审批闭环

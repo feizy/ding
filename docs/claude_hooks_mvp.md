@@ -214,15 +214,17 @@ MVP 建议：
 
 如果官方事件中包含更丰富字段，也应原样保留在原始 payload 中，便于后续扩展。
 
-## `ding-hook` 的职责
+## hook relay 入口的职责
 
-`ding-hook` 在 MVP 中只负责三件事：
+当前实现中，Claude hooks 调用的是 `ding` 主程序的隐藏 `hook-relay` 子命令。
+
+这个 hook relay 入口在 MVP 中只负责三件事：
 
 1. 读取 Claude hook 事件 JSON
 2. 转发给本地 `ding` daemon
 3. 对需要决策的事件，阻塞等待 daemon/UI 返回审批结果
 
-`ding-hook` 不负责：
+这个 hook relay 入口不负责：
 
 - 解析终端屏幕
 - 推断 assistant 文本
@@ -245,11 +247,15 @@ MVP 建议：
 
 1. 执行 `ding claude` 后，当前终端显示原生 Claude TUI
 2. 不修改当前目录与原生 Claude 的交互行为
-3. `SessionStart` 能在 `ding` 中创建实例
-4. `PermissionRequest` 能驱动悬浮窗审批
+3. 用户级 hooks 能自动写入 `~/.claude/settings.json`
+4. `SessionStart` 能在 `ding` 中创建实例
 5. `PostToolUse` / `PostToolUseFailure` 能更新日志和状态
 6. `StopFailure` 能正确映射为错误状态
 7. `SessionEnd` 能正确结束实例
+
+以下能力仍属于下一阶段：
+
+- `PermissionRequest -> UI -> 决策 -> Claude` 审批闭环
 
 ## 后续扩展方向
 

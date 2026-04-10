@@ -1,11 +1,16 @@
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use serde::{Deserialize, Serialize};
+use crate::instance::model::{DingStatus, LogLevel};
 
 const IPC_ADDR: &str = "127.0.0.1:46327";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum IpcMessage {
+    ClaudeHookEvent {
+        event_name: String,
+        payload: serde_json::Value,
+    },
     Claude {
         prompt: String,
         name: Option<String>,
@@ -103,6 +108,37 @@ async fn handle_ipc_message_internal(
     use tauri::Emitter;
     
     match msg {
+        IpcMessage::ClaudeHookEvent { event_name, payload } => {
+            let Some(session_id) = extract_session_id(&payload) else {
+                return "OK: ignored hook event without session_id\n".to_string();
+            };
+
+            let cwd = payload
+                .get("cwd")
+                .and_then(|value| value.as_str());
+
+            let instance = {
+                let mut lock = manager.lock().await;
+                let (instance_id, _) = lock.ensure_claude_session_instance(session_id, cwd);
+                let instance = lock
+                    .get_mut(&instance_id)
+                    .expect("instance should exist after session registration");
+
+                apply_claude_hook_event(instance, &event_name, &payload);
+                instance.clone()
+            };
+
+            if let Some(app) = app {
+                let _ = app.emit(
+                    "ding-event",
+                    crate::events::DingEvent::InstanceCreated {
+                        instance,
+                    },
+                );
+            }
+
+            return format!("OK: hook event {event_name} received\n");
+        }
         IpcMessage::Ping => {
             return "PONG\n".to_string();
         }
@@ -235,6 +271,95 @@ async fn handle_ipc_message_internal(
         }
         IpcMessage::Run { .. } => {
             return "ERROR: generic Run not implemented yet\n".to_string();
+        }
+    }
+}
+
+fn extract_session_id(payload: &serde_json::Value) -> Option<&str> {
+    payload
+        .get("session_id")
+        .and_then(|value| value.as_str())
+        .or_else(|| payload.get("sessionId").and_then(|value| value.as_str()))
+}
+
+fn apply_claude_hook_event(
+    instance: &mut crate::instance::model::Instance,
+    event_name: &str,
+    payload: &serde_json::Value,
+) {
+    match event_name {
+        "SessionStart" => {
+            instance.status = DingStatus::Idle;
+            instance.push_log("Claude session started".to_string(), LogLevel::System);
+        }
+        "PreToolUse" => {
+            instance.status = DingStatus::Running;
+            instance.push_log(
+                format!(
+                    "Tool starting: {}",
+                    payload
+                        .get("tool_name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("unknown")
+                ),
+                LogLevel::Tool,
+            );
+        }
+        "PermissionRequest" => {
+            instance.status = DingStatus::Running;
+            instance.push_log(
+                format!(
+                    "Permission requested: {}",
+                    payload
+                        .get("tool_name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("unknown")
+                ),
+                LogLevel::System,
+            );
+        }
+        "PermissionDenied" => {
+            instance.status = DingStatus::Running;
+            instance.push_log("Permission denied".to_string(), LogLevel::Error);
+        }
+        "PostToolUse" => {
+            instance.status = DingStatus::Running;
+            instance.push_log(
+                format!(
+                    "Tool completed: {}",
+                    payload
+                        .get("tool_name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("unknown")
+                ),
+                LogLevel::Tool,
+            );
+        }
+        "PostToolUseFailure" => {
+            instance.status = DingStatus::Error;
+            instance.push_log("Tool failed".to_string(), LogLevel::Error);
+        }
+        "Notification" => {
+            instance.status = DingStatus::Running;
+            instance.push_log("Notification received".to_string(), LogLevel::System);
+        }
+        "Stop" => {
+            instance.status = DingStatus::Idle;
+            instance.push_log("Claude turn completed".to_string(), LogLevel::System);
+        }
+        "StopFailure" => {
+            instance.status = DingStatus::Error;
+            instance.push_log("Claude stopped with failure".to_string(), LogLevel::Error);
+        }
+        "SessionEnd" => {
+            instance.status = DingStatus::Finished;
+            instance.push_log("Claude session ended".to_string(), LogLevel::System);
+        }
+        _ => {
+            instance.push_log(
+                format!("Claude hook event: {event_name}"),
+                LogLevel::System,
+            );
         }
     }
 }

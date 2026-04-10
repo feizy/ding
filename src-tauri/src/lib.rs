@@ -1,4 +1,5 @@
 mod commands;
+pub mod claude_hooks;
 mod instance;
 mod events;
 pub mod cli;

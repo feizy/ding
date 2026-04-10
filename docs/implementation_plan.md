@@ -29,7 +29,7 @@ Claude 后续实现以以下方案为准：
 
 - 交互式 Claude TUI
 - 用户级 hooks
-- `ding-hook` 作为结构化事件桥接器
+- 用户级 hook relay 入口作为结构化事件桥接器
 - `session_id` 作为实例主键
 
 明确不再作为主线的旧方案：
@@ -135,11 +135,18 @@ Claude 交互式方案的详细事件范围和状态映射以 [claude_hooks_mvp.
 
 ### 4.3 事件桥接
 
-`ding-hook` 的职责：
+当前实现中，Claude hooks 通过 `ding` 主二进制的隐藏子命令 `hook-relay` 回传事件。
+
+这一层的职责：
 
 - 从 Claude hooks 的 `stdin` 读取 JSON 事件
 - 把事件发给本地 daemon
 - 在需要人工决策时阻塞等待 `ding` UI 返回审批结果
+
+备注：
+
+- 仓库中仍保留 `ding-hook` 二进制，但当前用户级 hooks 安装路径已先落在 `ding.exe hook-relay <EventName>`
+- 只要行为一致，后续是否重新抽成独立 `ding-hook` 二进制不影响产品方向
 
 ### 4.4 实例识别
 
@@ -223,7 +230,7 @@ Codex 当前仍按结构化执行模式处理，不与 Claude 方案混用。
 
 - 用户级 hooks 安装
 - `ding claude` 原生交互启动
-- `ding-hook` 长期化
+- 用户级 hook relay 入口稳定化
 - `session_id` 实例识别
 - 审批 UI 回传
 

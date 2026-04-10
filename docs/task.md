@@ -26,7 +26,7 @@
 - `[x]` `ding` 自动安装/更新用户级 Claude hooks
 - `[x]` 用户级 hook relay 入口打通（当前实现为 `ding hook-relay`）
 - `[x]` Claude `session_id` 到 `ding` 实例的基础映射
-- `[ ]` `PermissionRequest -> UI -> 决策 -> Claude` 审批闭环
+- `[ ]` `PreToolUse -> UI -> 决策 -> Claude` 审批闭环完整验证
 - `[x]` `SessionStart / PostToolUse / Stop / SessionEnd` 的基础状态更新与日志映射
 
 ## Phase 3: Codex 结构化监控补完

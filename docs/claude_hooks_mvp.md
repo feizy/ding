@@ -14,17 +14,14 @@
 
 ## 官方 hooks 中第一期接入范围
 
-以下事件符合 `ding` 的监控要求，作为 MVP 首批接入：
+以下事件符合 `ding` 的监控要求，作为当前实现与 MVP 首批接入：
 
 - `SessionStart`
 - `PreToolUse`
-- `PermissionRequest`
-- `PermissionDenied`
 - `PostToolUse`
-- `PostToolUseFailure`
 - `Notification`
 - `Stop`
-- `StopFailure`
+- `SubagentStop`
 - `SessionEnd`
 
 ### 子代理扩展事件
@@ -84,32 +81,15 @@
 - 如果工具需要审批：状态设为 `action_required`
 - 日志中记录工具名和输入摘要
 
-### 3. `PermissionRequest`
+### 3. `PreToolUse` 审批职责
 
-用途：
+当前实现中，Claude 审批闭环以 `PreToolUse` 为主：
 
-- 专门捕获权限请求
-- 驱动审批 UI
+- 对需要拦截的工具，直接在 `PreToolUse` 阶段生成 `PendingAction`
+- `hook-relay` 阻塞等待 `ding` 决策
+- 决策结果以 hook JSON 返回给 Claude
 
-建议映射：
-
-- 状态设为 `action_required`
-- 生成 `PendingAction`
-- 在 UI 中展示命令/工具/路径/摘要
-
-### 4. `PermissionDenied`
-
-用途：
-
-- 表示工具调用被拒绝
-
-建议映射：
-
-- 记录拒绝日志
-- 若是用户主动拒绝，则状态可回到 `running`
-- 若是系统级阻断或策略拒绝，可设为 `error` 或保留 `running` 并附错误日志
-
-### 5. `PostToolUse`
+### 4. `PostToolUse`
 
 用途：
 
@@ -121,19 +101,7 @@
 - 记录结构化日志
 - 状态设为 `running`
 
-### 6. `PostToolUseFailure`
-
-用途：
-
-- 工具执行失败
-
-建议映射：
-
-- 写入错误日志
-- 若失败可恢复，则状态保持 `running`
-- 若失败导致会话不可继续，则状态设为 `error`
-
-### 7. `Notification`
+### 5. `Notification`
 
 用途：
 
@@ -146,7 +114,7 @@
 - 必要时提升胶囊可见性
 - 某些通知可映射为轻量 `action_required`
 
-### 8. `Stop`
+### 6. `Stop`
 
 用途：
 
@@ -162,18 +130,17 @@ MVP 建议：
 - CLI 退出时由 `SessionEnd` 负责最终收口
 - `Stop` 先映射为 `idle`
 
-### 9. `StopFailure`
+### 7. `SubagentStop`
 
 用途：
 
-- Claude 因错误停止
+- 记录子代理结束
 
 建议映射：
 
-- 状态设为 `error`
-- 写入错误日志
+- 先作为普通系统日志
 
-### 10. `SessionEnd`
+### 8. `SessionEnd`
 
 用途：
 
@@ -249,13 +216,14 @@ MVP 建议：
 2. 不修改当前目录与原生 Claude 的交互行为
 3. 用户级 hooks 能自动写入 `~/.claude/settings.json`
 4. `SessionStart` 能在 `ding` 中创建实例
-5. `PostToolUse` / `PostToolUseFailure` 能更新日志和状态
-6. `StopFailure` 能正确映射为错误状态
+5. `PreToolUse` 能生成待审批动作并阻塞等待 `ding` 决策
+6. `PostToolUse` 能更新日志和状态
 7. `SessionEnd` 能正确结束实例
 
 以下能力仍属于下一阶段：
 
-- `PermissionRequest -> UI -> 决策 -> Claude` 审批闭环
+- 真实 Claude 交互式会话下的完整 hooks 行为验证
+- 更细粒度的失败状态映射
 
 ## 后续扩展方向
 

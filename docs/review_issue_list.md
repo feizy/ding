@@ -9,7 +9,7 @@
 ### 1. Claude 审批闭环仍未完成
 
 - 现状：
-  当前 Claude hooks 已能回传基础事件并驱动基础状态更新，但 `PermissionRequest -> UI -> 决策 -> Claude` 还未打通。
+  当前 Claude hooks 已能回传基础事件并驱动基础状态更新，但 `PreToolUse -> UI -> 决策 -> Claude` 还缺少真实交互会话下的完整验证。
 - 风险：
   能看到权限请求趋势，但还不能通过 `ding` 完成真正的交互式审批闭环。
 

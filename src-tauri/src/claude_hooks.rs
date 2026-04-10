@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use crate::instance::model::ActionDecision;
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,23 +8,26 @@ use std::process::{Command, ExitStatus, Stdio};
 const MANAGED_HOOK_EVENTS: &[&str] = &[
     "SessionStart",
     "PreToolUse",
-    "PermissionRequest",
-    "PermissionDenied",
     "PostToolUse",
-    "PostToolUseFailure",
     "Notification",
     "Stop",
-    "StopFailure",
+    "SubagentStop",
     "SessionEnd",
+];
+
+const LEGACY_MANAGED_HOOK_EVENTS: &[&str] = &[
+    "PermissionRequest",
+    "PermissionDenied",
+    "PostToolUseFailure",
+    "StopFailure",
 ];
 
 const TOOL_MATCHED_EVENTS: &[&str] = &[
     "PreToolUse",
-    "PermissionRequest",
-    "PermissionDenied",
     "PostToolUse",
-    "PostToolUseFailure",
 ];
+
+const APPROVAL_REQUIRED_TOOL_MATCHER: &str = "Bash|Edit|MultiEdit|Write|WebFetch|WebSearch|Task";
 
 pub fn ensure_user_hooks_installed(main_exe_path: &Path) -> Result<PathBuf> {
     let settings_path = user_settings_path()?;
@@ -66,6 +70,38 @@ pub fn merge_managed_hooks(settings: &mut Value, main_exe_path: &Path) -> bool {
 
     let hooks_obj = hooks_value.as_object_mut().unwrap();
     let mut changed = false;
+
+    for legacy_event in LEGACY_MANAGED_HOOK_EVENTS {
+        if let Some(groups_value) = hooks_obj.get_mut(*legacy_event) {
+            if let Some(groups) = groups_value.as_array_mut() {
+                let before = groups.clone();
+                for group in groups.iter_mut() {
+                    if let Some(hooks) = group.get_mut("hooks").and_then(Value::as_array_mut) {
+                        hooks.retain(|hook| !is_managed_hook(hook, legacy_event));
+                    }
+                }
+                groups.retain(|group| {
+                    group
+                        .get("hooks")
+                        .and_then(Value::as_array)
+                        .map(|hooks| !hooks.is_empty())
+                        .unwrap_or(true)
+                });
+                if *groups != before {
+                    changed = true;
+                }
+            }
+        }
+        if hooks_obj
+            .get(*legacy_event)
+            .and_then(Value::as_array)
+            .map(|groups| groups.is_empty())
+            .unwrap_or(false)
+        {
+            hooks_obj.remove(*legacy_event);
+            changed = true;
+        }
+    }
 
     for event_name in MANAGED_HOOK_EVENTS {
         let groups_value = hooks_obj
@@ -124,11 +160,15 @@ pub async fn relay_hook_event(event_name: &str) -> Result<()> {
         })
     };
 
-    let _ = crate::ipc::send_to_daemon(crate::ipc::IpcMessage::ClaudeHookEvent {
+    let response = crate::ipc::send_to_daemon(crate::ipc::IpcMessage::ClaudeHookEvent {
         event_name: event_name.to_string(),
         payload: parsed,
     })
-    .await;
+    .await?;
+
+    if !response.trim().is_empty() {
+        println!("{response}");
+    }
 
     Ok(())
 }
@@ -165,7 +205,11 @@ fn managed_hook_group(main_exe_path: &Path, event_name: &str) -> Value {
     });
 
     if TOOL_MATCHED_EVENTS.contains(&event_name) {
-        group["matcher"] = Value::String("*".to_string());
+        group["matcher"] = Value::String(if event_name == "PreToolUse" {
+            APPROVAL_REQUIRED_TOOL_MATCHER.to_string()
+        } else {
+            "*".to_string()
+        });
     }
 
     group
@@ -196,8 +240,29 @@ fn start_daemon_in_background() -> Result<()> {
     Ok(())
 }
 
+pub fn pre_tool_use_decision_response(decision: ActionDecision) -> Value {
+    let (permission_decision, reason) = match decision {
+        ActionDecision::Approve | ActionDecision::ApproveForSession => (
+            "allow",
+            "Approved in ding",
+        ),
+        ActionDecision::Deny => ("deny", "Denied in ding"),
+        ActionDecision::Abort => ("deny", "Aborted in ding"),
+    };
+
+    json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": permission_decision,
+            "permissionDecisionReason": reason
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{merge_managed_hooks, pre_tool_use_decision_response};
+    use crate::instance::model::ActionDecision;
     use serde_json::json;
 
     #[test]
@@ -219,7 +284,7 @@ mod tests {
             }
         });
 
-        let changed = super::merge_managed_hooks(
+        let changed = merge_managed_hooks(
             &mut settings,
             std::path::Path::new(r"C:\tools\ding.exe"),
         );
@@ -239,18 +304,22 @@ mod tests {
 
         let session_start_groups = settings["hooks"]["SessionStart"].as_array().unwrap();
         assert_eq!(session_start_groups.len(), 1);
+        assert_eq!(
+            settings["hooks"]["PreToolUse"][1]["matcher"],
+            "Bash|Edit|MultiEdit|Write|WebFetch|WebSearch|Task"
+        );
     }
 
     #[test]
     fn merge_settings_is_idempotent_for_managed_hooks() {
         let mut settings = json!({});
 
-        let changed_once = super::merge_managed_hooks(
+        let changed_once = merge_managed_hooks(
             &mut settings,
             std::path::Path::new(r"C:\tools\ding.exe"),
         );
         let snapshot = settings.clone();
-        let changed_twice = super::merge_managed_hooks(
+        let changed_twice = merge_managed_hooks(
             &mut settings,
             std::path::Path::new(r"C:\tools\ding.exe"),
         );
@@ -258,5 +327,43 @@ mod tests {
         assert!(changed_once);
         assert!(!changed_twice);
         assert_eq!(settings, snapshot);
+    }
+
+    #[test]
+    fn pre_tool_use_decision_response_maps_allow_and_deny() {
+        let approved = pre_tool_use_decision_response(ActionDecision::Approve);
+        let denied = pre_tool_use_decision_response(ActionDecision::Deny);
+
+        assert_eq!(
+            approved["hookSpecificOutput"]["permissionDecision"],
+            "allow"
+        );
+        assert_eq!(
+            denied["hookSpecificOutput"]["permissionDecision"],
+            "deny"
+        );
+    }
+
+    #[test]
+    fn merge_settings_removes_legacy_managed_hook_entries() {
+        let mut settings = json!({
+            "hooks": {
+                "PermissionRequest": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "& 'C:\\tools\\ding.exe' hook-relay PermissionRequest"
+                            }
+                        ]
+                    }
+                ]
+            }
+        });
+
+        let changed = merge_managed_hooks(&mut settings, std::path::Path::new(r"C:\tools\ding.exe"));
+
+        assert!(changed);
+        assert!(settings["hooks"].get("PermissionRequest").is_none());
     }
 }

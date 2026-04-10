@@ -164,13 +164,10 @@ Claude 会话不再依赖一次性临时环境变量绑定实例。
 
 - `SessionStart`
 - `PreToolUse`
-- `PermissionRequest`
-- `PermissionDenied`
 - `PostToolUse`
-- `PostToolUseFailure`
 - `Notification`
 - `Stop`
-- `StopFailure`
+- `SubagentStop`
 - `SessionEnd`
 
 子代理扩展事件作为第二层增量：
@@ -214,6 +211,7 @@ Codex 当前仍按结构化执行模式处理，不与 Claude 方案混用。
 
 - Claude 交互式 TUI 下，`thinking` 这类细粒度状态可能只能通过 hooks 和推断层近似得到
 - UI 设计不能假设 Claude 一定会提供连续的 assistant 文本流
+- 当前审批主线是 `PreToolUse -> ding UI -> hook JSON decision`
 
 ---
 

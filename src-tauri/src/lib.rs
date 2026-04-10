@@ -58,7 +58,6 @@ pub fn run() {
             // Force window visibility and center it
             if let Some(window) = app.get_webview_window("widget") {
                 let _ = window.center();
-                let _ = window.set_decorations(true); // Temporary decoration for you to see/drag it
                 let _ = window.show();
             }
 

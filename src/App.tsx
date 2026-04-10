@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useLayoutEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useInstanceStore } from './stores/instanceStore';
@@ -16,6 +16,7 @@ const statusLabel: Record<string, string> = {
 };
 
 function App() {
+  const widgetRef = useRef<HTMLDivElement | null>(null);
   const {
     instances,
     expanded,
@@ -75,6 +76,25 @@ function App() {
     };
   }, [refreshInstances, upsertInstance, updateInstanceStatus, updatePendingAction, appendLog, updateCost, removeInstance]);
 
+  useLayoutEffect(() => {
+    const element = widgetRef.current;
+    if (!element) return;
+
+    const resizeToContent = () => {
+      const rect = element.getBoundingClientRect();
+      const width = Math.ceil(rect.width);
+      const height = Math.ceil(rect.height);
+      invoke('resize_widget', { width, height }).catch(() => {});
+    };
+
+    resizeToContent();
+
+    const observer = new ResizeObserver(() => resizeToContent());
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [expanded, instances.length, actionRequiredCount]);
+
   const totalCost = instances.reduce((sum, i) => sum + (i.cost_usd ?? 0), 0);
   const primaryInstance = instances.length > 0 ? instances[0] : null;
 
@@ -99,7 +119,7 @@ function App() {
     .join(' ');
 
   return (
-    <div className={widgetClass}>
+    <div ref={widgetRef} className={widgetClass}>
       {/* ─── Capsule (always visible) ─── */}
       <div className="capsule" onClick={toggleExpanded} data-tauri-drag-region>
         <StatusDot status={primaryStatus} />
@@ -152,10 +172,6 @@ function App() {
             <div className="empty">
               <div className="empty__icon">📡</div>
               <div>No active agents</div>
-              <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.7 }}>
-                <code style={{ color: 'var(--color-thinking)' }}>ding claude "task"</code><br />
-                <code style={{ color: 'var(--color-running)' }}>ding codex "fix bug"</code>
-              </div>
             </div>
           ) : (
             sortedInstances.map((inst) => (

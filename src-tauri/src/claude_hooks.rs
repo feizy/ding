@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Context, Result};
-use crate::instance::model::ActionDecision;
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 
+const CLAUDE_MONITOR_ENV: &str = "DING_MONITOR_CLAUDE";
 const MANAGED_HOOK_EVENTS: &[&str] = &[
     "SessionStart",
     "PreToolUse",
@@ -22,12 +22,7 @@ const LEGACY_MANAGED_HOOK_EVENTS: &[&str] = &[
     "StopFailure",
 ];
 
-const TOOL_MATCHED_EVENTS: &[&str] = &[
-    "PreToolUse",
-    "PostToolUse",
-];
-
-const APPROVAL_REQUIRED_TOOL_MATCHER: &str = "Bash|Edit|MultiEdit|Write|WebFetch|WebSearch|Task";
+const TOOL_MATCHED_EVENTS: &[&str] = &["PreToolUse", "PostToolUse"];
 
 pub fn ensure_user_hooks_installed(main_exe_path: &Path) -> Result<PathBuf> {
     let settings_path = user_settings_path()?;
@@ -176,6 +171,7 @@ pub async fn relay_hook_event(event_name: &str) -> Result<()> {
 pub fn launch_native_claude(args: &[String]) -> Result<ExitStatus> {
     let status = Command::new("claude")
         .args(args)
+        .env(CLAUDE_MONITOR_ENV, "1")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -205,11 +201,7 @@ fn managed_hook_group(main_exe_path: &Path, event_name: &str) -> Value {
     });
 
     if TOOL_MATCHED_EVENTS.contains(&event_name) {
-        group["matcher"] = Value::String(if event_name == "PreToolUse" {
-            APPROVAL_REQUIRED_TOOL_MATCHER.to_string()
-        } else {
-            "*".to_string()
-        });
+        group["matcher"] = Value::String("*".to_string());
     }
 
     group
@@ -217,7 +209,9 @@ fn managed_hook_group(main_exe_path: &Path, event_name: &str) -> Value {
 
 fn build_managed_hook_command(main_exe_path: &Path, event_name: &str) -> String {
     let escaped = main_exe_path.display().to_string().replace('\'', "''");
-    format!("& '{escaped}' hook-relay {event_name}")
+    format!(
+        "if ($env:{CLAUDE_MONITOR_ENV} -eq '1') {{ & '{escaped}' hook-relay {event_name} }}"
+    )
 }
 
 fn is_managed_hook(hook: &Value, event_name: &str) -> bool {
@@ -240,29 +234,9 @@ fn start_daemon_in_background() -> Result<()> {
     Ok(())
 }
 
-pub fn pre_tool_use_decision_response(decision: ActionDecision) -> Value {
-    let (permission_decision, reason) = match decision {
-        ActionDecision::Approve | ActionDecision::ApproveForSession => (
-            "allow",
-            "Approved in ding",
-        ),
-        ActionDecision::Deny => ("deny", "Denied in ding"),
-        ActionDecision::Abort => ("deny", "Aborted in ding"),
-    };
-
-    json!({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": permission_decision,
-            "permissionDecisionReason": reason
-        }
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{merge_managed_hooks, pre_tool_use_decision_response};
-    use crate::instance::model::ActionDecision;
+    use super::merge_managed_hooks;
     use serde_json::json;
 
     #[test]
@@ -304,9 +278,11 @@ mod tests {
 
         let session_start_groups = settings["hooks"]["SessionStart"].as_array().unwrap();
         assert_eq!(session_start_groups.len(), 1);
-        assert_eq!(
-            settings["hooks"]["PreToolUse"][1]["matcher"],
-            "Bash|Edit|MultiEdit|Write|WebFetch|WebSearch|Task"
+        assert!(
+            settings["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+                .as_str()
+                .unwrap()
+                .contains("$env:DING_MONITOR_CLAUDE -eq '1'")
         );
     }
 
@@ -327,21 +303,6 @@ mod tests {
         assert!(changed_once);
         assert!(!changed_twice);
         assert_eq!(settings, snapshot);
-    }
-
-    #[test]
-    fn pre_tool_use_decision_response_maps_allow_and_deny() {
-        let approved = pre_tool_use_decision_response(ActionDecision::Approve);
-        let denied = pre_tool_use_decision_response(ActionDecision::Deny);
-
-        assert_eq!(
-            approved["hookSpecificOutput"]["permissionDecision"],
-            "allow"
-        );
-        assert_eq!(
-            denied["hookSpecificOutput"]["permissionDecision"],
-            "deny"
-        );
     }
 
     #[test]

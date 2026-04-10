@@ -2,7 +2,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use crate::instance::model::{ActionDecision, ActionDetails, DingStatus, LogLevel, PendingAction};
+use crate::instance::model::{ActionDecision, DingStatus, LogLevel};
 
 const IPC_ADDR: &str = "127.0.0.1:46327";
 
@@ -125,54 +125,19 @@ async fn handle_ipc_message_internal(
                 .get("cwd")
                 .and_then(|value| value.as_str());
 
-            let (instance, pending_decision_rx) = {
+            let instance = {
                 let mut lock = manager.lock().await;
                 let (instance_id, _) = lock.ensure_claude_session_instance(session_id, cwd);
-                let pending_decision_rx = if event_name == "PreToolUse" {
-                    let (tx, rx) = tokio::sync::mpsc::channel(1);
-                    lock.decision_channels.insert(instance_id.clone(), tx);
-                    Some(rx)
-                } else {
-                    None
-                };
                 let instance = lock
                     .get_mut(&instance_id)
                     .expect("instance should exist after session registration");
 
                 apply_claude_hook_event(instance, &instance_id, &event_name, &payload);
-                (instance.clone(), pending_decision_rx)
+                instance.clone()
             };
 
             if let Some(app) = app {
                 emit_instance_snapshot(app, instance.clone());
-            }
-
-            if let Some(mut decision_rx) = pending_decision_rx {
-                let decision = decision_rx.recv().await.unwrap_or(ActionDecision::Deny);
-
-                let updated_instance = {
-                    let mut lock = manager.lock().await;
-                    lock.decision_channels.remove(&instance.id);
-                    let instance = lock
-                        .get_mut(&instance.id)
-                        .expect("instance should still exist when resolving decision");
-                    instance.pending_action = None;
-                    instance.status = DingStatus::Running;
-                    instance.push_log(
-                        format!("Claude tool decision: {:?}", decision),
-                        LogLevel::System,
-                    );
-                    instance.clone()
-                };
-
-                if let Some(app) = app {
-                    emit_instance_snapshot(app, updated_instance);
-                }
-
-                return format!(
-                    "{}\n",
-                    crate::claude_hooks::pre_tool_use_decision_response(decision)
-                );
             }
 
             return String::new();
@@ -356,7 +321,7 @@ fn extract_session_id(payload: &serde_json::Value) -> Option<&str> {
 
 fn apply_claude_hook_event(
     instance: &mut crate::instance::model::Instance,
-    instance_id: &str,
+    _instance_id: &str,
     event_name: &str,
     payload: &serde_json::Value,
 ) {
@@ -370,28 +335,9 @@ fn apply_claude_hook_event(
                 .get("tool_name")
                 .and_then(|value| value.as_str())
                 .unwrap_or("unknown");
-
-            let action = PendingAction {
-                action_id: format!("{}-{}", instance_id, chrono::Utc::now().timestamp_millis()),
-                message: format!("Claude wants to use tool: {tool_name}"),
-                available_decisions: vec![
-                    ActionDecision::Approve,
-                    ActionDecision::Deny,
-                    ActionDecision::Abort,
-                ],
-                details: ActionDetails::ToolUse {
-                    tool_name: tool_name.to_string(),
-                    tool_input: payload
-                        .get("tool_input")
-                        .cloned()
-                        .unwrap_or_else(|| serde_json::json!({})),
-                },
-            };
-
-            instance.pending_action = Some(action);
-            instance.status = DingStatus::ActionRequired;
+            instance.status = DingStatus::Running;
             instance.push_log(
-                format!("Tool awaiting approval: {tool_name}"),
+                format!("Tool starting: {tool_name}"),
                 LogLevel::Tool,
             );
         }
@@ -413,15 +359,24 @@ fn apply_claude_hook_event(
             instance.push_log("Tool failed".to_string(), LogLevel::Error);
         }
         "Notification" => {
-            instance.status = DingStatus::Running;
-            instance.push_log(
-                payload
-                    .get("message")
-                    .and_then(|value| value.as_str())
-                    .unwrap_or("Notification received")
-                    .to_string(),
-                LogLevel::System,
-            );
+            let message = payload
+                .get("message")
+                .and_then(|value| value.as_str())
+                .unwrap_or("Notification received")
+                .to_string();
+
+            let lower = message.to_ascii_lowercase();
+            if lower.contains("permission")
+                || lower.contains("input")
+                || lower.contains("confirm")
+                || lower.contains("approval")
+            {
+                instance.status = DingStatus::ActionRequired;
+            } else {
+                instance.status = DingStatus::Running;
+            }
+
+            instance.push_log(message, LogLevel::System);
         }
         "Stop" => {
             instance.status = DingStatus::Idle;

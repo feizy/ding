@@ -20,13 +20,12 @@ interface InstanceStore {
   updatePendingAction: (id: string, action: PendingAction) => void;
   appendLog: (id: string, log: any) => void;
   updateCost: (id: string, cost_usd: number) => void;
-  clearPendingAction: (id: string) => void;
   removeInstance: (id: string) => void;
 }
 
 function computePrimaryStatus(instances: Instance[]): DingStatus {
   if (instances.length === 0) return 'idle';
-  const priority: DingStatus[] = ['action_required', 'error', 'thinking', 'running', 'idle', 'finished'];
+  const priority: DingStatus[] = ['action_required', 'error', 'thinking', 'tool_calling', 'running', 'idle', 'finished'];
   for (const s of priority) {
     if (instances.some(i => i.status === s)) return s;
   }
@@ -106,21 +105,6 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
         actionRequiredCount: instances.filter(i => i.status === 'action_required').length,
       };
     }),
-
-  clearPendingAction: (id) =>
-    set((state) => {
-      const instances = state.instances.map(i =>
-        i.id === id
-          ? { ...i, pending_action: null, status: 'running' as DingStatus }
-          : i
-      );
-      return {
-        instances,
-        primaryStatus: computePrimaryStatus(instances),
-        actionRequiredCount: instances.filter(i => i.status === 'action_required').length,
-      };
-    }),
-
   removeInstance: (id) =>
     set((state) => {
       const instances = state.instances.filter(i => i.id !== id);

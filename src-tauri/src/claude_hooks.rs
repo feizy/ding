@@ -8,6 +8,7 @@ const CLAUDE_MONITOR_ENV: &str = "DING_MONITOR_CLAUDE";
 const MANAGED_HOOK_EVENTS: &[&str] = &[
     "SessionStart",
     "PreToolUse",
+    "PermissionRequest",
     "PostToolUse",
     "Notification",
     "Stop",
@@ -16,7 +17,6 @@ const MANAGED_HOOK_EVENTS: &[&str] = &[
 ];
 
 const LEGACY_MANAGED_HOOK_EVENTS: &[&str] = &[
-    "PermissionRequest",
     "PermissionDenied",
     "PostToolUseFailure",
     "StopFailure",
@@ -309,12 +309,12 @@ mod tests {
     fn merge_settings_removes_legacy_managed_hook_entries() {
         let mut settings = json!({
             "hooks": {
-                "PermissionRequest": [
+                "PermissionDenied": [
                     {
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "& 'C:\\tools\\ding.exe' hook-relay PermissionRequest"
+                                "command": "& 'C:\\tools\\ding.exe' hook-relay PermissionDenied"
                             }
                         ]
                     }
@@ -325,6 +325,7 @@ mod tests {
         let changed = merge_managed_hooks(&mut settings, std::path::Path::new(r"C:\tools\ding.exe"));
 
         assert!(changed);
-        assert!(settings["hooks"].get("PermissionRequest").is_none());
+        assert!(settings["hooks"].get("PermissionDenied").is_none());
+        assert!(settings["hooks"].get("PermissionRequest").is_some());
     }
 }

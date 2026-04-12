@@ -10,20 +10,13 @@ pub struct InstanceInfo {
     pub adapter_type: AdapterType,
     pub adapter_label: String,
     pub status: DingStatus,
+    pub current_tool_name: Option<String>,
     pub created_at: String,
     pub last_event_at: String,
     pub pending_action: Option<PendingAction>,
     pub recent_logs: Vec<LogLine>,
     pub exit_code: Option<i32>,
     pub cost_usd: Option<f64>,
-}
-
-#[derive(serde::Serialize)]
-pub struct InstanceListResponse {
-    pub instances: Vec<InstanceInfo>,
-    pub total: usize,
-    pub action_required_count: usize,
-    pub primary_status: DingStatus,
 }
 
 fn instance_to_info(inst: &Instance) -> InstanceInfo {
@@ -33,6 +26,7 @@ fn instance_to_info(inst: &Instance) -> InstanceInfo {
         adapter_type: inst.adapter_type.clone(),
         adapter_label: inst.adapter_type.display_name().to_string(),
         status: inst.status.clone(),
+        current_tool_name: inst.current_tool_name.clone(),
         created_at: inst.created_at.clone(),
         last_event_at: inst.last_event_at.clone(),
         pending_action: inst.pending_action.clone(),
@@ -53,7 +47,6 @@ pub async fn get_instances(
     Ok(infos)
 }
 
-/// Create a Claude Code instance (demo: creates with mock data for now)
 #[tauri::command]
 pub async fn create_claude_instance(
     manager: tauri::State<'_, SharedManager>,
@@ -84,7 +77,6 @@ pub async fn create_claude_instance(
     Ok(id)
 }
 
-/// Create a Codex instance (demo)
 #[tauri::command]
 pub async fn create_codex_instance(
     manager: tauri::State<'_, SharedManager>,
@@ -120,31 +112,25 @@ pub async fn send_decision(
     instance_id: String,
     decision: String,
 ) -> Result<(), String> {
-    let dec = match decision.as_str() {
-        "approve" => ActionDecision::Approve,
-        "approve_for_session" => ActionDecision::ApproveForSession,
-        "deny" => ActionDecision::Deny,
-        "abort" => ActionDecision::Abort,
-        _ => return Err("Invalid decision".to_string()),
-    };
+    submit_action_impl(
+        manager.inner().clone(),
+        &app,
+        instance_id,
+        ActionSubmission::Choice {
+            selected_id: decision,
+        },
+    )
+    .await
+}
 
-    let mut mgr = manager.lock().await;
-
-    // Send the decision via channel
-    if let Some(tx) = mgr.decision_channels.get(&instance_id) {
-        let _ = tx.send(dec).await;
-    }
-
-    if let Some(inst) = mgr.get_mut(&instance_id) {
-        let decision_label = decision.clone();
-        inst.pending_action = None;
-        inst.status = DingStatus::Running;
-        inst.push_log(format!("User decision: {}", decision_label), LogLevel::System);
-        let _ = app.emit("ding-update", "decision_sent");
-        Ok(())
-    } else {
-        Err(format!("Instance {} not found", instance_id))
-    }
+#[tauri::command]
+pub async fn submit_action(
+    manager: tauri::State<'_, SharedManager>,
+    app: AppHandle,
+    instance_id: String,
+    submission: ActionSubmission,
+) -> Result<(), String> {
+    submit_action_impl(manager.inner().clone(), &app, instance_id, submission).await
 }
 
 /// Kill an instance
@@ -171,5 +157,67 @@ pub async fn resize_widget(
     window
         .set_size(tauri::Size::Logical(size))
         .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn submit_action_impl(
+    manager: SharedManager,
+    app: &AppHandle,
+    instance_id: String,
+    submission: ActionSubmission,
+) -> Result<(), String> {
+    let hook_sender = {
+        let mgr = manager.lock().await;
+        if mgr.get(&instance_id).is_none() {
+            return Err(format!("Instance {} not found", instance_id));
+        }
+        mgr.hook_response_channels.get(&instance_id).cloned()
+    };
+
+    if let Some(tx) = hook_sender {
+        tx.send(submission.clone())
+            .await
+            .map_err(|_| "Failed to forward action to Claude proxy".to_string())?;
+    } else {
+        let decision = submission
+            .as_legacy_decision()
+            .ok_or_else(|| "This action does not support the submitted response type".to_string())?;
+
+        let decision_sender = {
+            let mgr = manager.lock().await;
+            mgr.decision_channels.get(&instance_id).cloned()
+        };
+
+        let Some(tx) = decision_sender else {
+            return Err("No active action channel for this instance".to_string());
+        };
+
+        tx.send(decision)
+            .await
+            .map_err(|_| "Failed to forward action to adapter".to_string())?;
+    }
+
+    let updated_instance = {
+        let mut mgr = manager.lock().await;
+        let Some(inst) = mgr.get_mut(&instance_id) else {
+            return Err(format!("Instance {} not found", instance_id));
+        };
+
+        inst.pending_action = None;
+        inst.status = DingStatus::Running;
+        inst.push_log(
+            format!("Submitted action response: {}", submission.summary()),
+            LogLevel::System,
+        );
+        inst.clone()
+    };
+
+    let _ = app.emit(
+        "ding-event",
+        crate::events::DingEvent::InstanceCreated {
+            instance: updated_instance,
+        },
+    );
+
     Ok(())
 }

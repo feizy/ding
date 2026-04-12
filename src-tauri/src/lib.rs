@@ -1,5 +1,6 @@
 mod commands;
 pub mod claude_hooks;
+pub mod claude_proxy;
 mod instance;
 mod events;
 pub mod cli;
@@ -73,6 +74,7 @@ pub fn run() {
             commands::create_claude_instance,
             commands::create_codex_instance,
             commands::send_decision,
+            commands::submit_action,
             commands::kill_instance,
             commands::resize_widget,
         ])

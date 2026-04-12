@@ -11,9 +11,11 @@ use crate::instance::model::*;
 struct ClaudeStreamEvent {
     #[serde(rename = "type")]
     event_type: String,
-    session_id: Option<String>,
+    #[serde(rename = "session_id")]
+    _session_id: Option<String>,
     message: Option<ClaudeMessage>,
-    result: Option<String>,
+    #[serde(rename = "result")]
+    _result: Option<String>,
     cost_usd: Option<f64>,
     #[serde(default)]
     is_error: bool,
@@ -31,14 +33,17 @@ enum ClaudeContent {
     Text { text: String },
     #[serde(rename = "tool_use")]
     ToolUse {
-        id: String,
+        #[serde(rename = "id")]
+        _id: String,
         name: String,
         input: serde_json::Value,
     },
     #[serde(rename = "tool_result")]
     ToolResult {
-        tool_use_id: String,
-        content: Option<serde_json::Value>,
+        #[serde(rename = "tool_use_id")]
+        _tool_use_id: String,
+        #[serde(rename = "content")]
+        _content: Option<serde_json::Value>,
     },
 }
 
@@ -187,7 +192,7 @@ impl ClaudeCodeAdapter {
                                     LogLevel::Info,
                                 ));
                             }
-                            ClaudeContent::ToolUse { name, input, id: _ } => {
+                            ClaudeContent::ToolUse { name, input, _id: _ } => {
                                 // Tool use → Running status + log
                                 let input_summary = if let Some(cmd) =
                                     input.get("command").and_then(|v| v.as_str())

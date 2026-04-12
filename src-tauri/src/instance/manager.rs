@@ -7,6 +7,7 @@ pub struct InstanceManager {
     instances: HashMap<String, Instance>,
     claude_sessions: HashMap<String, String>,
     pub decision_channels: HashMap<String, tokio::sync::mpsc::Sender<ActionDecision>>,
+    pub hook_response_channels: HashMap<String, tokio::sync::mpsc::Sender<ActionSubmission>>,
     counter: u32,
 }
 
@@ -16,6 +17,7 @@ impl InstanceManager {
             instances: HashMap::new(),
             claude_sessions: HashMap::new(),
             decision_channels: HashMap::new(),
+            hook_response_channels: HashMap::new(),
             counter: 0,
         }
     }
@@ -69,6 +71,7 @@ impl InstanceManager {
     /// Remove an instance
     pub fn remove(&mut self, id: &str) -> Option<Instance> {
         self.decision_channels.remove(id);
+        self.hook_response_channels.remove(id);
         self.claude_sessions.retain(|_, mapped_id| mapped_id != id);
         self.instances.remove(id)
     }

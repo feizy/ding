@@ -1,6 +1,5 @@
-use tauri::{AppHandle, Emitter};
-use crate::SharedManager;
-use crate::adapter::{Adapter, RawAdapterEvent};
+use tauri::Emitter;
+use crate::adapter::RawAdapterEvent;
 use crate::events::DingEvent;
 use crate::instance::model::DingStatus;
 

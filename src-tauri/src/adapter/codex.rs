@@ -11,9 +11,11 @@ use crate::instance::model::*;
 struct CodexEvent {
     #[serde(rename = "type")]
     event_type: String,
-    thread_id: Option<String>,
+    #[serde(rename = "thread_id")]
+    _thread_id: Option<String>,
     item: Option<CodexItem>,
-    usage: Option<CodexUsage>,
+    #[serde(rename = "usage")]
+    _usage: Option<CodexUsage>,
     error: Option<CodexError>,
     message: Option<String>,
     // Approval fields
@@ -22,7 +24,8 @@ struct CodexEvent {
     cwd: Option<String>,
     reason: Option<String>,
     available_decisions: Option<Vec<String>>,
-    changes: Option<serde_json::Value>,
+    #[serde(rename = "changes")]
+    _changes: Option<serde_json::Value>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -34,8 +37,10 @@ struct CodexItem {
 
 #[derive(Debug, serde::Deserialize)]
 struct CodexUsage {
-    input_tokens: u64,
-    output_tokens: u64,
+    #[serde(rename = "input_tokens")]
+    _input_tokens: u64,
+    #[serde(rename = "output_tokens")]
+    _output_tokens: u64,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -156,13 +161,27 @@ impl CodexAdapter {
 
                 Some(RawAdapterEvent::ActionRequired(PendingAction {
                     action_id: event.call_id.unwrap_or_else(|| "unknown".to_string()),
+                    title: "Execution approval".to_string(),
                     message: format!("Codex wants to run: {}", command.join(" ")),
-                    available_decisions: decisions,
-                    details: ActionDetails::Command {
+                    source_event: "exec_approval_request".to_string(),
+                    kind: PendingActionKind::Choice,
+                    options: decisions
+                        .into_iter()
+                        .map(|decision| ActionOption {
+                            id: decision.submission_id().to_string(),
+                            label: decision.label().to_string(),
+                            description: None,
+                            style: decision.style(),
+                        })
+                        .collect(),
+                    input: None,
+                    form: None,
+                    details: Some(ActionDetails::Command {
                         command,
                         cwd,
                         reason: event.reason,
-                    },
+                    }),
+                    raw_payload: serde_json::Value::Null,
                 }))
             }
 
@@ -170,11 +189,25 @@ impl CodexAdapter {
             "apply_patch_approval_request" => {
                 Some(RawAdapterEvent::ActionRequired(PendingAction {
                     action_id: event.call_id.unwrap_or_else(|| "unknown".to_string()),
+                    title: "Patch approval".to_string(),
                     message: "Codex wants to modify files".to_string(),
-                    available_decisions: vec![ActionDecision::Approve, ActionDecision::Abort],
-                    details: ActionDetails::FileDiff {
+                    source_event: "apply_patch_approval_request".to_string(),
+                    kind: PendingActionKind::Choice,
+                    options: vec![ActionDecision::Approve, ActionDecision::Abort]
+                        .into_iter()
+                        .map(|decision| ActionOption {
+                            id: decision.submission_id().to_string(),
+                            label: decision.label().to_string(),
+                            description: None,
+                            style: decision.style(),
+                        })
+                        .collect(),
+                    input: None,
+                    form: None,
+                    details: Some(ActionDetails::FileDiff {
                         files: vec![], // TODO: parse changes
-                    },
+                    }),
+                    raw_payload: serde_json::Value::Null,
                 }))
             }
 

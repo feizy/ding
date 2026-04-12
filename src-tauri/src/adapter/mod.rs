@@ -22,7 +22,9 @@ pub struct AdapterConfig {
     pub model: Option<String>,
     pub allowed_tools: Option<String>,
     pub approval_mode: Option<String>,
+    #[allow(dead_code)]
     pub program: Option<String>,
+    #[allow(dead_code)]
     pub args: Vec<String>,
 }
 

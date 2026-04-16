@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { Menu } from '@tauri-apps/api/menu';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { InstanceCard } from './components/InstanceCard';
 import { StatusDot } from './components/StatusDot';
 import { useInstanceStore } from './stores/instanceStore';
@@ -48,6 +50,25 @@ function App() {
       .then((data) => setInstances(data))
       .catch(() => {});
   }, [setInstances]);
+
+  const showContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    Menu.new({
+      items: [
+        {
+          id: 'quit',
+          text: '关闭 ding',
+          action: () => {
+            invoke('quit_app').catch(console.error);
+          },
+        },
+      ],
+    })
+      .then((menu) => menu.popup(undefined, getCurrentWindow()))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     refreshInstances();
@@ -142,7 +163,7 @@ function App() {
     .join(' ');
 
   return (
-    <div ref={widgetRef} className={widgetClass}>
+    <div ref={widgetRef} className={widgetClass} onContextMenu={showContextMenu}>
       <div className="capsule" onClick={toggleExpanded} data-tauri-drag-region>
         <StatusDot status={primaryStatus} />
 

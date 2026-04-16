@@ -160,6 +160,12 @@ pub async fn resize_widget(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn quit_app(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
+}
+
 async fn submit_action_impl(
     manager: SharedManager,
     app: &AppHandle,

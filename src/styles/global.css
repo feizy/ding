@@ -37,8 +37,9 @@
   --capsule-width: 320px;
   --panel-width: 320px;
   --panel-max-height: 480px;
-  --radius-capsule: 14px;
-  --radius-card: 12px;
+  --radius-widget: 16px;
+  --radius-capsule: var(--radius-widget);
+  --radius-card: var(--radius-widget);
   --radius-btn: 8px;
   --radius-code: 8px;
 
@@ -125,7 +126,7 @@ body {
 
 .widget {
   width: var(--capsule-width);
-  border-radius: var(--radius-capsule);
+  border-radius: var(--radius-widget);
   background: var(--bg-widget);
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
@@ -146,7 +147,7 @@ body {
 }
 
 .widget--expanded {
-  border-radius: 14px;
+  border-radius: var(--radius-widget);
 }
 
 /* ─── Capsule (collapsed header) ─── */

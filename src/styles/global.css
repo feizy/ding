@@ -557,6 +557,40 @@ body {
   font-weight: 600;
 }
 
+.action-area__choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.action-area__choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-code);
+  background: var(--bg-code);
+  cursor: pointer;
+}
+
+.action-area__choice input {
+  margin-top: 2px;
+}
+
+.action-area__choice-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.action-area__choice-description {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
 .action-area__input {
   width: 100%;
   border: 1px solid var(--border-glass);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type {
   ActionFormField,
+  ActionOption,
   ActionSubmission,
   PendingAction,
 } from '../types/instance';
@@ -22,13 +23,15 @@ function optionButtonClass(style: 'primary' | 'secondary' | 'danger') {
   }
 }
 
-function fieldInitialValue(_field: ActionFormField) {
+function fieldInitialValue(field: ActionFormField) {
+  if (field.field_type === 'select') return field.options[0]?.id ?? '';
+  if (field.field_type === 'multi_select') return [];
   return '';
 }
 
 export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
   const [inputValue, setInputValue] = useState('');
-  const [formValues, setFormValues] = useState<Record<string, string>>(() => {
+  const [formValues, setFormValues] = useState<Record<string, string | string[]>>(() => {
     if (!action.form) return {};
     return Object.fromEntries(action.form.fields.map((field) => [field.id, fieldInitialValue(field)]));
   });
@@ -136,15 +139,69 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
   const renderForm = () => {
     if (!action.form) return null;
 
+    const updateField = (fieldId: string, value: string | string[]) => {
+      setFormValues((current) => ({ ...current, [fieldId]: value }));
+    };
+
+    const renderChoiceOption = (
+      field: ActionFormField,
+      option: ActionOption,
+      checked: boolean,
+    ) => (
+      <label key={option.id} className="action-area__choice">
+        <input
+          type={field.field_type === 'multi_select' ? 'checkbox' : 'radio'}
+          name={field.id}
+          value={option.id}
+          checked={checked}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            if (field.field_type === 'multi_select') {
+              const current = Array.isArray(formValues[field.id])
+                ? (formValues[field.id] as string[])
+                : [];
+              updateField(
+                field.id,
+                event.target.checked
+                  ? [...current, option.id]
+                  : current.filter((id: string) => id !== option.id),
+              );
+            } else {
+              updateField(field.id, option.id);
+            }
+          }}
+        />
+        <span>
+          <span className="action-area__choice-label">{option.label}</span>
+          {option.description && (
+            <span className="action-area__choice-description">{option.description}</span>
+          )}
+        </span>
+      </label>
+    );
+
     return (
       <div className="action-area__form">
         {action.form.fields.map((field) => (
           <label key={field.id} className="action-area__field">
             <span className="action-area__field-label">{field.label}</span>
-            {field.field_type === 'multiline' ? (
+            {field.field_type === 'select' || field.field_type === 'multi_select' ? (
+              <div className="action-area__choices" data-no-drag="true">
+                {field.options.map((option) =>
+                  renderChoiceOption(
+                    field,
+                    option,
+                    field.field_type === 'multi_select'
+                      ? Array.isArray(formValues[field.id]) &&
+                          formValues[field.id].includes(option.id)
+                      : formValues[field.id] === option.id,
+                  ),
+                )}
+              </div>
+            ) : field.field_type === 'multiline' ? (
               <textarea
                 className="action-area__input action-area__input--multiline"
-                value={formValues[field.id] ?? ''}
+                value={typeof formValues[field.id] === 'string' ? formValues[field.id] : ''}
                 placeholder={field.placeholder ?? ''}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>
@@ -154,7 +211,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
             ) : (
               <input
                 className="action-area__input"
-                value={formValues[field.id] ?? ''}
+                value={typeof formValues[field.id] === 'string' ? formValues[field.id] : ''}
                 placeholder={field.placeholder ?? ''}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>

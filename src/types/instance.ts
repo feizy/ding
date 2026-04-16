@@ -26,7 +26,7 @@ export interface ActionInputSpec {
   multiline: boolean;
 }
 
-export type ActionFormFieldType = 'text' | 'multiline';
+export type ActionFormFieldType = 'text' | 'multiline' | 'select' | 'multi_select';
 
 export interface ActionFormField {
   id: string;
@@ -34,6 +34,7 @@ export interface ActionFormField {
   field_type: ActionFormFieldType;
   placeholder: string | null;
   required: boolean;
+  options: ActionOption[];
 }
 
 export interface ActionFormSpec {
@@ -72,7 +73,7 @@ export interface PendingAction {
 export type ActionSubmission =
   | { kind: 'choice'; selected_id: string }
   | { kind: 'input'; value: string }
-  | { kind: 'form'; values: Record<string, unknown> };
+  | { kind: 'form'; values: Record<string, string | string[]> };
 
 export interface LogLine {
   timestamp: string;

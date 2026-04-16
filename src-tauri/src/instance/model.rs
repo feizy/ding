@@ -93,6 +93,7 @@ pub struct ActionFormField {
     pub field_type: ActionFormFieldType,
     pub placeholder: Option<String>,
     pub required: bool,
+    pub options: Vec<ActionOption>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -100,6 +101,8 @@ pub struct ActionFormField {
 pub enum ActionFormFieldType {
     Text,
     Multiline,
+    Select,
+    MultiSelect,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -48,7 +48,7 @@ function App() {
   const refreshInstances = useCallback(() => {
     invoke<Instance[]>('get_instances')
       .then((data) => setInstances(data))
-      .catch(() => {});
+      .catch(() => { });
   }, [setInstances]);
 
   const showContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -59,7 +59,7 @@ function App() {
       items: [
         {
           id: 'quit',
-          text: '关闭 ding',
+          text: 'close ding',
           action: () => {
             invoke('quit_app').catch(console.error);
           },
@@ -123,7 +123,7 @@ function App() {
       invoke('resize_widget', {
         width: Math.ceil(rect.width),
         height: Math.ceil(rect.height),
-      }).catch(() => {});
+      }).catch(() => { });
     };
 
     resizeToContent();
@@ -148,10 +148,10 @@ function App() {
     actionRequiredCount > 0
       ? `${actionRequiredCount} action${actionRequiredCount > 1 ? 's' : ''} needed`
       : primaryInstance
-      ? primaryStatus === 'tool_calling' && primaryInstance.current_tool_name
-        ? `${primaryInstance.adapter_label} · ${primaryInstance.current_tool_name}`
-        : `${primaryInstance.adapter_label} · ${statusLabel[primaryStatus] || ''}`
-      : 'No active agents';
+        ? primaryStatus === 'tool_calling' && primaryInstance.current_tool_name
+          ? `${primaryInstance.adapter_label} · ${primaryInstance.current_tool_name}`
+          : `${primaryInstance.adapter_label} · ${statusLabel[primaryStatus] || ''}`
+        : 'No active agents';
 
   const widgetClass = [
     'widget',
@@ -187,15 +187,14 @@ function App() {
             </div>
           )}
           <span
-            className={`capsule__count ${
-              actionRequiredCount > 0 ? 'capsule__count--urgent' : ''
-            }`}
+            className={`capsule__count ${actionRequiredCount > 0 ? 'capsule__count--urgent' : ''
+              }`}
           >
             {actionRequiredCount > 0
               ? `${actionRequiredCount}`
               : sortedInstances.length > 0
-              ? `${sortedInstances.length}`
-              : '-'}
+                ? `${sortedInstances.length}`
+                : '-'}
           </span>
           <span className={`capsule__chevron ${expanded ? 'capsule__chevron--up' : ''}`}>
             ▼
@@ -224,8 +223,7 @@ function App() {
                 }{' '}
                 active
                 {sortedInstances.some((instance) => instance.status === 'finished') &&
-                  ` · ${
-                    sortedInstances.filter((instance) => instance.status === 'finished').length
+                  ` · ${sortedInstances.filter((instance) => instance.status === 'finished').length
                   } done`}
               </span>
               {totalCost > 0 && <span>Total ${totalCost.toFixed(3)}</span>}

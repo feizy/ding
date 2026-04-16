@@ -82,7 +82,6 @@ export const InstanceCard = ({ instance }: InstanceCardProps) => {
             id={`kill-${instance.id}`}
             className="card__kill"
             onClick={handleKill}
-            data-no-drag="true"
             title="Kill instance"
           >
             ×

@@ -18,11 +18,11 @@ pub fn pending_action_from_hook(
 
 pub fn build_hook_response(
     event_name: &str,
-    _raw_payload: &Value,
+    raw_payload: &Value,
     submission: ActionSubmission,
 ) -> Result<Value> {
     match event_name {
-        "PermissionRequest" => build_permission_request_response(submission),
+        "PermissionRequest" => build_permission_request_response(raw_payload, submission),
         _ => bail!("unsupported blocking hook event: {event_name}"),
     }
 }
@@ -54,26 +54,42 @@ fn permission_request_action(payload: &Value) -> PendingAction {
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| format!("permission-{}", uuid::Uuid::new_v4()));
 
+    let mut options = vec![ActionOption {
+        id: "allow".to_string(),
+        label: "Allow".to_string(),
+        description: Some("Continue this Claude action once".to_string()),
+        style: ActionOptionStyle::Primary,
+    }];
+
+    if let Some(suggestions) = payload
+        .get("permission_suggestions")
+        .or_else(|| payload.get("permissionSuggestions"))
+        .and_then(Value::as_array)
+    {
+        for (index, suggestion) in suggestions.iter().enumerate() {
+            options.push(ActionOption {
+                id: format!("allow_suggestion_{index}"),
+                label: permission_suggestion_label(suggestion, index),
+                description: Some("Apply Claude's suggested permission update".to_string()),
+                style: ActionOptionStyle::Secondary,
+            });
+        }
+    }
+
+    options.push(ActionOption {
+        id: "deny".to_string(),
+        label: "Deny".to_string(),
+        description: Some("Reject this Claude action".to_string()),
+        style: ActionOptionStyle::Danger,
+    });
+
     PendingAction {
         action_id,
         title: "Permission required".to_string(),
         message,
         source_event: "PermissionRequest".to_string(),
         kind: PendingActionKind::Choice,
-        options: vec![
-            ActionOption {
-                id: "allow".to_string(),
-                label: "Allow".to_string(),
-                description: Some("Continue this Claude action".to_string()),
-                style: ActionOptionStyle::Primary,
-            },
-            ActionOption {
-                id: "deny".to_string(),
-                label: "Deny".to_string(),
-                description: Some("Reject this Claude action".to_string()),
-                style: ActionOptionStyle::Danger,
-            },
-        ],
+        options,
         input: None,
         form: None,
         details: Some(ActionDetails::ToolUse {
@@ -84,7 +100,27 @@ fn permission_request_action(payload: &Value) -> PendingAction {
     }
 }
 
-fn build_permission_request_response(submission: ActionSubmission) -> Result<Value> {
+fn permission_suggestion_label(suggestion: &Value, index: usize) -> String {
+    let destination = suggestion
+        .get("destination")
+        .and_then(Value::as_str)
+        .unwrap_or("session");
+    let behavior = suggestion
+        .get("behavior")
+        .and_then(Value::as_str)
+        .unwrap_or("allow");
+
+    match (behavior, destination) {
+        ("allow", "localSettings") => "Always allow for this project".to_string(),
+        ("allow", "userSettings") => "Always allow globally".to_string(),
+        ("allow", "session") => "Allow for this session".to_string(),
+        ("allow", other) => format!("Always allow ({other})"),
+        ("deny", other) => format!("Always deny ({other})"),
+        _ => format!("Permission option {}", index + 1),
+    }
+}
+
+fn build_permission_request_response(raw_payload: &Value, submission: ActionSubmission) -> Result<Value> {
     let selected_id = match submission {
         ActionSubmission::Choice { selected_id } => selected_id,
         ActionSubmission::Input { .. } | ActionSubmission::Form { .. } => {
@@ -96,10 +132,34 @@ fn build_permission_request_response(submission: ActionSubmission) -> Result<Val
         "allow" | "deny" => Ok(json!({
             "hookSpecificOutput": {
                 "hookEventName": "PermissionRequest",
-                "permissionDecision": selected_id,
-                "permissionDecisionReason": "Resolved in ding"
+                "decision": {
+                    "behavior": selected_id
+                }
             }
         })),
+        suggestion_id if suggestion_id.starts_with("allow_suggestion_") => {
+            let index = suggestion_id
+                .strip_prefix("allow_suggestion_")
+                .and_then(|value| value.parse::<usize>().ok())
+                .ok_or_else(|| anyhow::anyhow!("invalid permission suggestion id: {suggestion_id}"))?;
+            let suggestion = raw_payload
+                .get("permission_suggestions")
+                .or_else(|| raw_payload.get("permissionSuggestions"))
+                .and_then(Value::as_array)
+                .and_then(|suggestions| suggestions.get(index))
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("permission suggestion {index} not found"))?;
+
+            Ok(json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PermissionRequest",
+                    "decision": {
+                        "behavior": "allow",
+                        "updatedPermissions": [suggestion]
+                    }
+                }
+            }))
+        }
         _ => bail!("unsupported PermissionRequest choice: {selected_id}"),
     }
 }
@@ -119,7 +179,15 @@ mod tests {
                 "command": "git status"
             },
             "tool_use_id": "tool-123",
-            "message": "Claude needs permission to run Bash"
+            "message": "Claude needs permission to run Bash",
+            "permission_suggestions": [
+                {
+                    "type": "rule",
+                    "rule": "Bash(git status)",
+                    "behavior": "allow",
+                    "destination": "localSettings"
+                }
+            ]
         });
 
         let action = pending_action_from_hook("PermissionRequest", &payload)
@@ -129,9 +197,10 @@ mod tests {
         assert_eq!(action.action_id, "tool-123");
         assert_eq!(action.kind, PendingActionKind::Choice);
         assert_eq!(action.source_event, "PermissionRequest");
-        assert_eq!(action.options.len(), 2);
+        assert_eq!(action.options.len(), 3);
         assert_eq!(action.options[0].id, "allow");
-        assert_eq!(action.options[1].id, "deny");
+        assert_eq!(action.options[1].id, "allow_suggestion_0");
+        assert_eq!(action.options[2].id, "deny");
     }
 
     #[test]
@@ -150,8 +219,51 @@ mod tests {
             json!({
                 "hookSpecificOutput": {
                     "hookEventName": "PermissionRequest",
-                    "permissionDecision": "allow",
-                    "permissionDecisionReason": "Resolved in ding"
+                    "decision": {
+                        "behavior": "allow"
+                    }
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn permission_request_suggestion_submission_builds_updated_permissions() {
+        let payload = json!({
+            "permission_suggestions": [
+                {
+                    "type": "rule",
+                    "rule": "Bash(git status)",
+                    "behavior": "allow",
+                    "destination": "localSettings"
+                }
+            ]
+        });
+        let response = build_hook_response(
+            "PermissionRequest",
+            &payload,
+            ActionSubmission::Choice {
+                selected_id: "allow_suggestion_0".to_string(),
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            response,
+            json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PermissionRequest",
+                    "decision": {
+                        "behavior": "allow",
+                        "updatedPermissions": [
+                            {
+                                "type": "rule",
+                                "rule": "Bash(git status)",
+                                "behavior": "allow",
+                                "destination": "localSettings"
+                            }
+                        ]
+                    }
                 }
             })
         );

@@ -11,3 +11,8 @@ build.log
 build_err.log
 
 *.tsbuildinfo
+
+# Local Claude/debug exports
+.claude/
+ding - AI Agent Monitor.html
+ding - AI Agent Monitor_files/

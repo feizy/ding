@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { InstanceCard } from './components/InstanceCard';
 import { StatusDot } from './components/StatusDot';
 import { useInstanceStore } from './stores/instanceStore';
@@ -26,6 +27,16 @@ const priority: Record<string, number> = {
   finished: 6,
 };
 
+const noDragSelector = [
+  'button',
+  'input',
+  'textarea',
+  'select',
+  'a',
+  '[role="button"]',
+  '[data-no-drag="true"]',
+].join(',');
+
 function App() {
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -48,6 +59,16 @@ function App() {
       .then((data) => setInstances(data))
       .catch(() => {});
   }, [setInstances]);
+
+  const handleWindowDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest(noDragSelector)) return;
+
+    getCurrentWindow().startDragging().catch(() => {});
+  }, []);
 
   useEffect(() => {
     refreshInstances();
@@ -142,7 +163,11 @@ function App() {
     .join(' ');
 
   return (
-    <div ref={widgetRef} className={widgetClass}>
+    <div
+      ref={widgetRef}
+      className={widgetClass}
+      onPointerDown={handleWindowDrag}
+    >
       <div className="capsule" onClick={toggleExpanded} data-tauri-drag-region>
         <StatusDot status={primaryStatus} />
 

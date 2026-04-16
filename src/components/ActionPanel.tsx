@@ -86,6 +86,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
         <button
           key={option.id}
           className={optionButtonClass(option.style)}
+          data-no-drag="true"
           onClick={(event) => {
             event.stopPropagation();
             onSubmit({ kind: 'choice', selected_id: option.id });
@@ -108,6 +109,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
             className="action-area__input action-area__input--multiline"
             value={inputValue}
             placeholder={action.input.placeholder ?? ''}
+            data-no-drag="true"
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => setInputValue(event.target.value)}
           />
@@ -116,12 +118,14 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
             className="action-area__input"
             value={inputValue}
             placeholder={action.input.placeholder ?? ''}
+            data-no-drag="true"
             onClick={(event) => event.stopPropagation()}
             onChange={(event) => setInputValue(event.target.value)}
           />
         )}
         <button
           className="btn btn--approve"
+          data-no-drag="true"
           onClick={(event) => {
             event.stopPropagation();
             onSubmit({ kind: 'input', value: inputValue });
@@ -146,6 +150,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
                 className="action-area__input action-area__input--multiline"
                 value={formValues[field.id] ?? ''}
                 placeholder={field.placeholder ?? ''}
+                data-no-drag="true"
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>
                   setFormValues((current) => ({ ...current, [field.id]: event.target.value }))
@@ -156,6 +161,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
                 className="action-area__input"
                 value={formValues[field.id] ?? ''}
                 placeholder={field.placeholder ?? ''}
+                data-no-drag="true"
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) =>
                   setFormValues((current) => ({ ...current, [field.id]: event.target.value }))
@@ -166,6 +172,7 @@ export const ActionPanel = ({ action, onSubmit }: ActionPanelProps) => {
         ))}
         <button
           className="btn btn--approve"
+          data-no-drag="true"
           onClick={(event) => {
             event.stopPropagation();
             onSubmit({ kind: 'form', values: formValues });

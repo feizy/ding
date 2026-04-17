@@ -37,14 +37,14 @@
   --capsule-width: 320px;
   --panel-width: 320px;
   --panel-max-height: 480px;
-  --radius-widget: 16px;
-  --radius-capsule: var(--radius-widget);
-  --radius-card: var(--radius-widget);
-  --radius-btn: 8px;
-  --radius-code: 8px;
+  --radius-widget: 6px;
+  --radius-capsule: 6px;
+  --radius-card: 4px;
+  --radius-btn: 4px;
+  --radius-code: 4px;
 
   /* Shadows */
-  --shadow-widget: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-widget: 0 8px 32px rgba(0, 0, 0, 0.5);
   --shadow-glow-action: 0 0 24px rgba(245, 158, 11, 0.25), 0 0 48px rgba(245, 158, 11, 0.1);
   --shadow-glow-error: 0 0 24px rgba(239, 68, 68, 0.25);
 }

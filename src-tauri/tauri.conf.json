@@ -19,11 +19,12 @@
         "height": 72,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "alwaysOnTop": true,
         "resizable": false,
         "skipTaskbar": false,
         "center": true,
-        "visible": true
+        "visible": false
       }
     ],
     "trayIcon": {

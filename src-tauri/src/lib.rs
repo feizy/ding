@@ -56,8 +56,38 @@ pub fn run() {
             let handle = app.handle().clone();
             let manager = ipc_manager.clone();
             
-            // Force window visibility and center it
+            // Set WebView2 background transparent BEFORE showing the window.
+            // tauri.conf.json has visible:false so the window starts hidden.
+            // set_background_color targets the OS window layer, NOT WebView2 itself.
+            // We must call put_DefaultBackgroundColor via the WebView2 COM interface
+            // directly so that CSS border-radius corners show the desktop, not grey.
             if let Some(window) = app.get_webview_window("widget") {
+                #[cfg(target_os = "windows")]
+                {
+                    use webview2_com::Microsoft::Web::WebView2::Win32::{
+                        ICoreWebView2Controller2, COREWEBVIEW2_COLOR,
+                    };
+                    use windows::core::Interface;
+                    
+                    // 1. Force the Win32 window to be fully transparent via window_vibrancy.
+                    // Instead of brittle manual DWM edits, using clear_blur internally configures
+                    // the exact layered window + composition attributes needed for a transparent background.
+                    #[allow(unused_variables)]
+                    let _ = window_vibrancy::apply_blur(&window, Some((0, 0, 0, 0)));
+                    
+                    // Or set clear_blur directly if apply_blur creates an effect:
+                    let _ = window_vibrancy::clear_blur(&window);
+
+                    // 2. Set WebView2 background transparent via COM
+                    let _ = window.with_webview(|wv| {
+                        unsafe {
+                            if let Ok(ctrl) = wv.controller().cast::<ICoreWebView2Controller2>() {
+                                ctrl.SetDefaultBackgroundColor(COREWEBVIEW2_COLOR { A: 0, R: 0, G: 0, B: 0 }).ok();
+                                eprintln!("[ding] WebView2 background set to transparent");
+                            }
+                        }
+                    });
+                }
                 let _ = window.center();
                 let _ = window.show();
             }

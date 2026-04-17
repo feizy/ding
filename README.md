@@ -19,7 +19,6 @@ With ding, you can keep vibecoding while watching YouTube, browsing, reading doc
 - Alerts you when Claude Code needs permission or input.
 - Mirrors Claude Code permission choices, including allow, deny, and always-allow options.
 - Mirrors Claude Code user-question options when Claude asks you to choose from a list.
-- Lets you close ding from the floating window's right-click menu.
 
 ## Requirements
 
@@ -138,7 +137,7 @@ Right-click the ding floating window.
 You will see a ding-specific menu with:
 
 ```text
-关闭 ding
+close ding
 ```
 
 Select it to close the ding floating window and daemon.

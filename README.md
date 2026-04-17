@@ -44,7 +44,7 @@ Run several Claude Code sessions at the same time. ding aggregates status, tool 
 - Alerts you when Claude Code needs permission or user input.
 - Mirrors Claude Code permission choices, including allow, deny, and always-allow options.
 - Mirrors Claude Code question choices instead of replacing them with generic approval buttons.
-- Lets you close ding from the floating window's right-click menu.
+- Drag on edge to move the floating window.
 
 ## Install
 

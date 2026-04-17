@@ -18,9 +18,6 @@ The best way to explain ding is visually. Record these GIFs and place them in `a
 | AskUserQuestion mirrored | `assets/demo/ask-user-question.gif` | Claude Code asks the user to choose from multiple options, and ding mirrors those choices instead of showing generic Allow/Deny buttons. |
 | Multi-instance monitoring | `assets/demo/multi-instance-monitoring.gif` | Multiple Claude Code sessions run at the same time while ding aggregates status, tool activity, and action-required counts in one floating window. |
 
-After recording, uncomment the image block below.
-
-<!--
 <p align="center">
   <img src="assets/demo/permission-required.gif" alt="ding surfaces a Claude Code permission request" width="760">
 </p>
@@ -32,7 +29,6 @@ After recording, uncomment the image block below.
 <p align="center">
   <img src="assets/demo/multi-instance-monitoring.gif" alt="ding monitors multiple Claude Code sessions in one floating window" width="760">
 </p>
--->
 
 See [the recording guide](assets/demo/RECORDING_GUIDE.md) for exact scripts, prompts, and capture settings.
 

@@ -4,6 +4,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 const CLAUDE_MONITOR_ENV: &str = "DING_MONITOR_CLAUDE";
 const MANAGED_HOOK_EVENTS: &[&str] = &[
     "SessionStart",
@@ -225,13 +228,25 @@ fn is_managed_hook(hook: &Value, event_name: &str) -> bool {
 
 fn start_daemon_in_background() -> Result<()> {
     let exe_path = std::env::current_exe().context("failed to resolve current executable")?;
-    Command::new(exe_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+    let mut command = Command::new(exe_path);
+    configure_background_daemon_command(&mut command);
+    command
         .spawn()
         .context("failed to start ding daemon in background")?;
     Ok(())
+}
+
+fn configure_background_daemon_command(command: &mut Command) {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
 }
 
 #[cfg(test)]

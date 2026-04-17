@@ -1,6 +1,10 @@
 /// CLI command handlers
 use super::Commands;
 use crate::ipc::{self, IpcMessage};
+use std::process::{Child, Command, Stdio};
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 pub async fn handle_command(cmd: Commands) {
     match cmd {
@@ -74,7 +78,9 @@ async fn ensure_daemon_running() -> Result<(), String> {
 
     println!("Ding daemon not running. Starting in background...");
     let exe_path = std::env::current_exe().map_err(|err| err.to_string())?;
-    let mut child = std::process::Command::new(exe_path)
+    let mut command = Command::new(exe_path);
+    configure_background_daemon_command(&mut command);
+    let mut child = command
         .spawn()
         .map_err(|err| err.to_string())?;
 
@@ -86,7 +92,7 @@ async fn ensure_daemon_running() -> Result<(), String> {
     }
 }
 
-async fn wait_for_daemon_ready(child: &mut std::process::Child) -> Result<bool, String> {
+async fn wait_for_daemon_ready(child: &mut Child) -> Result<bool, String> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
 
     loop {
@@ -103,5 +109,18 @@ async fn wait_for_daemon_ready(child: &mut std::process::Child) -> Result<bool, 
         }
 
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+}
+
+fn configure_background_daemon_command(command: &mut Command) {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
     }
 }

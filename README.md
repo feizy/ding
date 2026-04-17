@@ -16,7 +16,7 @@ The best way to explain ding is visually. Record these GIFs and place them in `a
 | --- | --- | --- |
 | Permission required | `assets/demo/permission-required.gif` | Claude Code asks to run a command, ding changes to `Action needed`, and the user approves from the floating window. |
 | AskUserQuestion mirrored | `assets/demo/ask-user-question.gif` | Claude Code asks the user to choose from multiple options, and ding mirrors those choices instead of showing generic Allow/Deny buttons. |
-| Background vibecoding | `assets/demo/background-vibecoding.gif` | Claude Code works in the background while another window is active; ding surfaces the blocking prompt immediately. |
+| Multi-instance monitoring | `assets/demo/multi-instance-monitoring.gif` | Multiple Claude Code sessions run at the same time while ding aggregates status, tool activity, and action-required counts in one floating window. |
 
 After recording, uncomment the image block below.
 
@@ -30,7 +30,7 @@ After recording, uncomment the image block below.
 </p>
 
 <p align="center">
-  <img src="assets/demo/background-vibecoding.gif" alt="ding lets you vibecode in the background without missing Claude Code prompts" width="760">
+  <img src="assets/demo/multi-instance-monitoring.gif" alt="ding monitors multiple Claude Code sessions in one floating window" width="760">
 </p>
 -->
 
@@ -147,4 +147,3 @@ src-tauri\target\debug\ding.exe
 ```
 
 Use the formal release installer instead. The product build does not depend on `localhost` or a Vite dev server.
-

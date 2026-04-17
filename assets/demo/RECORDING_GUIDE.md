@@ -26,7 +26,7 @@ Place final GIFs here:
 ```text
 assets/demo/permission-required.gif
 assets/demo/ask-user-question.gif
-assets/demo/background-vibecoding.gif
+assets/demo/multi-instance-monitoring.gif
 ```
 
 After adding the files, uncomment the GIF image block in `README.md`.
@@ -86,27 +86,40 @@ Capture:
 - Zoom/crop so the ding floating window is readable.
 - Make sure the GIF clearly shows the actual option labels.
 
-## Demo 3: Background Vibecoding
+## Demo 3: Multi-Instance Monitoring
 
-Goal: show the lifestyle value: ding lets the user work elsewhere without missing Claude Code prompts.
+Goal: show that ding can monitor multiple Claude Code sessions at the same time.
 
 Setup:
 
-- Put Claude Code behind another window, or partially covered.
-- Keep ding floating and visible.
+- Open two or three terminals in the same repo.
+- Start Claude Code through ding in each terminal.
+- Keep the ding floating window visible and expanded.
 
-Prompt:
+Terminal 1 prompt:
 
 ```text
-Work on a task that will need permission before running a command. Continue only after approval.
+Use Bash to inspect the current git status, then stop.
+```
+
+Terminal 2 prompt:
+
+```text
+Ask me which hook scenario I want to test. Give me three choices: permission command interception, option selection capture, and tool call monitoring.
+```
+
+Optional Terminal 3 prompt:
+
+```text
+Read package.json and summarize the scripts.
 ```
 
 Capture:
 
-- Show another window in focus.
-- Claude Code triggers a permission prompt in the background.
-- ding visibly changes to `Action needed`.
-- Click ding to handle the prompt.
+- Show the ding floating window with multiple instance dots.
+- Expand ding to show multiple cards.
+- Capture at least one `Using Bash` or `Using AskUserQuestion` state.
+- Capture one instance entering `Action needed` while another remains running or idle.
+- End with ding showing that multiple sessions are tracked together.
 
-Do not show private browser tabs, tokens, or personal content.
-
+Do not show private paths, tokens, or personal content.

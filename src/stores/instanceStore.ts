@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Instance, DingStatus, PendingAction } from '../types/instance';
+import type { AdapterType, Instance, DingStatus, PendingAction } from '../types/instance';
 
 // Empty initial state for production
 const INITIAL_INSTANCES: Instance[] = [];
@@ -32,6 +32,27 @@ function computePrimaryStatus(instances: Instance[]): DingStatus {
   return 'idle';
 }
 
+const adapterLabels: Record<AdapterType, string> = {
+  claude_code: 'Claude Code',
+  codex: 'Codex',
+  generic: 'Custom',
+};
+
+function normalizeInstance(instance: Instance): Instance {
+  return {
+    ...instance,
+    adapter_label:
+      instance.adapter_label ??
+      adapterLabels[instance.adapter_type] ??
+      'Agent',
+    current_tool_name: instance.current_tool_name ?? null,
+    pending_action: instance.pending_action ?? null,
+    recent_logs: instance.recent_logs ?? [],
+    cost_usd: instance.cost_usd ?? null,
+    exit_code: instance.exit_code ?? null,
+  };
+}
+
 export const useInstanceStore = create<InstanceStore>((set, get) => ({
   instances: INITIAL_INSTANCES,
   expanded: false,
@@ -43,12 +64,14 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
   toggleExpanded: () => set({ expanded: !get().expanded }),
   selectInstance: (id) => set({ selectedInstanceId: id }),
 
-  setInstances: (instances) =>
+  setInstances: (instances) => {
+    const normalized = instances.map(normalizeInstance);
     set({
-      instances,
-      primaryStatus: computePrimaryStatus(instances),
-      actionRequiredCount: instances.filter(i => i.status === 'action_required').length,
-    }),
+      instances: normalized,
+      primaryStatus: computePrimaryStatus(normalized),
+      actionRequiredCount: normalized.filter(i => i.status === 'action_required').length,
+    });
+  },
 
   updateInstanceStatus: (id, status) =>
     set((state) => {
@@ -94,10 +117,11 @@ export const useInstanceStore = create<InstanceStore>((set, get) => ({
 
   upsertInstance: (instance) =>
     set((state) => {
-      const exists = state.instances.some(i => i.id === instance.id);
+      const normalized = normalizeInstance(instance);
+      const exists = state.instances.some(i => i.id === normalized.id);
       const instances = exists 
-        ? state.instances.map(i => i.id === instance.id ? instance : i)
-        : [...state.instances, instance];
+        ? state.instances.map(i => i.id === normalized.id ? { ...i, ...normalized } : i)
+        : [...state.instances, normalized];
 
       return {
         instances,

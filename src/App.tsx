@@ -169,7 +169,7 @@ function App() {
 
         <div className="capsule__info">
           <div className="capsule__name">
-            {primaryInstance ? primaryInstance.name : 'ding'}
+            ding
             {totalCost > 0 && <span className="capsule__cost">${totalCost.toFixed(3)}</span>}
           </div>
           <div className="capsule__subtitle">{subtitle}</div>

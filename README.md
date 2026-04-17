@@ -34,7 +34,6 @@ Run several Claude Code sessions at the same time. ding aggregates status, tool 
   <img src="assets/demo/multi-instance-monitoring.gif" alt="ding monitors multiple Claude Code sessions in one floating window" width="360">
 </p>
 
-See [the recording guide](assets/demo/RECORDING_GUIDE.md) for exact scripts, prompts, and capture settings.
 
 ## What ding Does
 

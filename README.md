@@ -8,26 +8,30 @@ Have you ever left Claude Code running in the background, only to find out much 
 
 With ding, you can keep vibecoding while watching YouTube, reading docs, or working in another window. If Claude Code needs your permission, a choice, or any other blocking action, ding floats above your workspace and tells you immediately.
 
-## Demo
+## Demos
 
-The best way to explain ding is visually. Record these GIFs and place them in `assets/demo/`:
+### Permission required
 
-| Scenario | Asset path | What it should show |
-| --- | --- | --- |
-| Permission required | `assets/demo/permission-required.gif` | Claude Code asks to run a command, ding changes to `Action needed`, and the user approves from the floating window. |
-| AskUserQuestion mirrored | `assets/demo/ask-user-question.gif` | Claude Code asks the user to choose from multiple options, and ding mirrors those choices instead of showing generic Allow/Deny buttons. |
-| Multi-instance monitoring | `assets/demo/multi-instance-monitoring.gif` | Multiple Claude Code sessions run at the same time while ding aggregates status, tool activity, and action-required counts in one floating window. |
+Claude Code asks to run a command. ding switches to `Action needed`, mirrors the permission choices, and lets you approve from the floating window.
 
 <p align="center">
-  <img src="assets/demo/permission-required.gif" alt="ding surfaces a Claude Code permission request" width="760">
+  <img src="assets/demo/permission-required.gif" alt="ding surfaces a Claude Code permission request" width="360">
 </p>
 
-<p align="center">
-  <img src="assets/demo/ask-user-question.gif" alt="ding mirrors Claude Code user question choices" width="760">
-</p>
+### AskUserQuestion mirrored
+
+When Claude Code asks you to choose from multiple options, ding shows those real choices instead of replacing them with generic Allow/Deny buttons.
 
 <p align="center">
-  <img src="assets/demo/multi-instance-monitoring.gif" alt="ding monitors multiple Claude Code sessions in one floating window" width="760">
+  <img src="assets/demo/ask-user-question.gif" alt="ding mirrors Claude Code user question choices" width="360">
+</p>
+
+### Multi-instance monitoring
+
+Run several Claude Code sessions at the same time. ding aggregates status, tool activity, and action-required counts in one floating monitor.
+
+<p align="center">
+  <img src="assets/demo/multi-instance-monitoring.gif" alt="ding monitors multiple Claude Code sessions in one floating window" width="360">
 </p>
 
 See [the recording guide](assets/demo/RECORDING_GUIDE.md) for exact scripts, prompts, and capture settings.

@@ -1,6 +1,6 @@
 # ding
 
-**A floating permission monitor for Claude Code.**
+**A floating permission monitor for Claude Code CLI.**
 
 ding keeps Claude Code's native terminal UI intact, while a small always-on-top window watches for tool activity, permission prompts, and user-input requests.
 
